@@ -226,12 +226,13 @@ sub check
 
 	# A match occurs if every bit we check is on
 	foreach my $key ( @keys ) {
-	    my $match = 1;
-	    foreach my $cell (@{$self->_get_cells($key)} ) {
+		my $match = 1;
+		foreach my $salt ( @{ $self->{salts} } ) {
+			my $cell = $self->_get_cell($key, $salt);
 			$match = vec( $self->{filter}, $cell, 1 ) ;
 			last unless $match;
-	    }
-	    push @result, $match;
+		}
+		push @result, $match;
 	}
 	return ( wantarray() ? @result : $result[0] );
 }
@@ -287,24 +288,32 @@ sub _get_cells
 
 	my @cells;
 	foreach my $salt ( @salts ){
-
-		my $hash = sha1( $key, $salt );
-
-		# blank 32 bit vector
-		my $vec = $self->{blankvec};
-
-		# split the 160-bit hash into five 32-bit ints
-		# and XOR the pieces together
-
-		my @pieces =  map {pack( "N", $_ )} unpack("N*", $hash );
-		$vec = $_ ^ $vec foreach @pieces;
-
-		# Calculate bit offset by modding
-		my $result = unpack( "N", $vec );
-		my $bit_offset = $result % $self->{filter_length};
-		push @cells, $bit_offset;
+		push @cells, $self->_get_cell($key, $salt);
 	}
 	return \@cells;
+}
+
+=item _get_cell KEY, SALT
+
+=cut
+
+sub _get_cell
+{
+	my ( $self, $key, $salt ) = @_;
+	my $hash = sha1( $key, $salt );
+
+	# blank 32 bit vector
+	my $vec = $self->{blankvec};
+
+	# split the 160-bit hash into five 32-bit ints
+	# and XOR the pieces together
+
+	my @pieces =  map {pack( "N", $_ )} unpack("N*", $hash );
+	$vec = $_ ^ $vec foreach @pieces;
+
+	# Calculate bit offset by modding
+	my $result = unpack( "N", $vec );
+	my $bit_offset = $result % $self->{filter_length};
 }
 
 =back
